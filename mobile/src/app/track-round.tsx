@@ -5,21 +5,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ShotMap from '@/components/shot-map';
 import type { Point } from '@/components/shot-map.types';
+import { carrickHoleOne } from '@/constants/courses';
 import { distanceInMetres } from '@/utils/distance';
 
-type Endpoint =
+type ShotPosition =
   | { source: 'gps'; point: Location.LocationObject }
   | { source: 'map'; point: Point };
 
+function coordinates(position: ShotPosition) {
+  return position.source === 'gps' ? position.point.coords : position.point;
+}
+
+const whiteTeeStart: ShotPosition = { source: 'map', point: carrickHoleOne.whiteTeeReference };
+
 export default function TrackRoundScreen() {
-  const [start, setStart] = useState<Location.LocationObject | null>(null);
-  const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
+  const [start, setStart] = useState<ShotPosition>(whiteTeeStart);
+  const [endpoint, setEndpoint] = useState<ShotPosition | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const recording = useRef(false);
-  const target = endpoint?.source === 'gps' ? endpoint.point.coords : endpoint?.point;
-  const distance = start && target ? distanceInMetres(start.coords, target) : null;
+  const origin = coordinates(start);
+  const target = endpoint ? coordinates(endpoint) : null;
+  const distance = target ? distanceInMetres(origin, target) : null;
 
   async function recordPosition() {
     if (recording.current) return;
@@ -38,12 +46,8 @@ export default function TrackRoundScreen() {
         setError('Location Services are off. Enable them in your phone settings and try again.');
         return;
       }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
-      if (start) {
-        setEndpoint({ source: 'gps', point: position });
-      } else {
-        setStart(position);
-      }
+      const point = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+      setEndpoint({ source: 'gps', point });
     } catch {
       setError('Could not get your position. Try again outdoors with a clear view of the sky.');
     } finally {
@@ -53,7 +57,7 @@ export default function TrackRoundScreen() {
   }
 
   function reset() {
-    setStart(null);
+    setStart(whiteTeeStart);
     setEndpoint(null);
     setError(null);
     setShowSettings(false);
@@ -66,21 +70,37 @@ export default function TrackRoundScreen() {
     setShowSettings(false);
   }
 
+  function advanceStart() {
+    if (recording.current || !endpoint) return;
+    setStart(endpoint);
+    setEndpoint(null);
+    setError(null);
+    setShowSettings(false);
+  }
+
   return (
     <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>GOLF PERFORMANCE</Text>
-        <Text style={styles.title}>Measure your shot</Text>
-        <Text style={styles.body}>Set a fixed start, then walk to the ball or choose a target on the map.</Text>
+        <Text accessibilityRole="header" style={styles.title}>{carrickHoleOne.course}</Text>
+        <ShotMap
+          teeArea={carrickHoleOne.whiteTeeReference}
+          greenArea={carrickHoleOne.greenArea}
+          start={origin}
+          endpoint={target}
+          onSelect={selectTarget}
+        />
+        <Text style={styles.body}>
+          {Platform.OS === 'web'
+            ? 'Walk to your ball and use your current location to set the endpoint.'
+            : 'Walk to your ball and use your location, or tap the map and drag the endpoint pin.'}
+        </Text>
         <View style={styles.result}>
           <Text style={styles.eyebrow}>STRAIGHT-LINE DISTANCE</Text>
           <Text style={styles.distance}>{distance === null ? '—' : distance.toFixed(1)} m</Text>
-          <Text style={styles.body}>{endpoint?.source === 'gps' ? 'GPS endpoint' : endpoint ? 'Map target' : start ? 'Choose an endpoint.' : 'Set your start to begin.'}</Text>
+          <Text style={styles.body}>
+            {endpoint?.source === 'gps' ? 'GPS endpoint' : endpoint ? 'Map target' : start === whiteTeeStart ? 'Starts at the mapped white tee reference.' : 'Choose your next endpoint.'}
+          </Text>
         </View>
-        {start && <ShotMap start={start.coords} endpoint={target ?? null} onSelect={selectTarget} />}
-        {start && Platform.OS !== 'web' && (
-          <Text style={styles.body}>Tap the map or drag the endpoint pin to adjust your target.</Text>
-        )}
         {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
         {showSettings && (
           <Pressable accessibilityRole="button" style={styles.secondary} onPress={() => { void Linking.openSettings().catch(() => setError('Open phone Settings manually to change location access.')); }}>
@@ -89,21 +109,29 @@ export default function TrackRoundScreen() {
         )}
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} style={[styles.button, busy && styles.disabled]} onPress={recordPosition}>
           {busy && <ActivityIndicator color="#ffffff" />}
-          <Text style={styles.buttonText}>{busy ? 'Finding your position…' : start ? 'Use my location' : 'Set start'}</Text>
+          <Text style={styles.buttonText}>{busy ? 'Finding your position…' : 'Use my location'}</Text>
         </Pressable>
-        {start && !busy && (
-          <Pressable accessibilityRole="button" style={styles.secondary} onPress={reset}><Text style={styles.secondaryText}>Reset start</Text></Pressable>
+        {endpoint && (
+          <Pressable accessibilityRole="button" disabled={busy} style={styles.secondary} onPress={advanceStart}>
+            <Text style={styles.secondaryText}>Use endpoint as next start</Text>
+          </Pressable>
         )}
-        {[{ label: 'Fixed start', position: start }, { label: 'GPS endpoint', position: endpoint?.source === 'gps' ? endpoint.point : null }].map(({ label, position }) => position && (
+        {(start !== whiteTeeStart || endpoint) && !busy && (
+          <Pressable accessibilityRole="button" style={styles.secondary} onPress={reset}><Text style={styles.secondaryText}>Reset to white tees</Text></Pressable>
+        )}
+        {[{ label: 'Current start', position: start }, { label: 'GPS endpoint', position: endpoint }].map(({ label, position }) => position?.source === 'gps' && (
           <View key={label} style={styles.card}>
             <Text style={styles.cardTitle}>{label}</Text>
-            <Text style={styles.body}>Latitude: {position.coords.latitude.toFixed(6)}</Text>
-            <Text style={styles.body}>Longitude: {position.coords.longitude.toFixed(6)}</Text>
-            <Text style={styles.body}>Reported accuracy: {position.coords.accuracy === null ? 'Unavailable' : `±${Math.round(position.coords.accuracy)} m`}</Text>
-            <Text style={styles.body}>Recorded: {new Date(position.timestamp).toLocaleTimeString()}</Text>
+            <Text style={styles.body}>Latitude: {position.point.coords.latitude.toFixed(6)}</Text>
+            <Text style={styles.body}>Longitude: {position.point.coords.longitude.toFixed(6)}</Text>
+            <Text style={styles.body}>Reported accuracy: {position.point.coords.accuracy === null ? 'Unavailable' : `±${Math.round(position.point.coords.accuracy)} m`}</Text>
+            <Text style={styles.body}>Recorded: {new Date(position.point.timestamp).toLocaleTimeString()}</Text>
           </View>
         ))}
         <Text style={styles.note}>Test outdoors. GPS has uncertainty and is unsuitable for precise putting distances. Positions are held in memory only and clear when the app restarts.</Text>
+        <Text accessibilityRole="link" style={styles.attribution} onPress={() => {
+          void Linking.openURL('https://www.openstreetmap.org/copyright').catch(() => setError('Could not open the map data attribution.'));
+        }}>Hole data © OpenStreetMap contributors</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -126,4 +154,5 @@ const styles = StyleSheet.create({
   secondaryText: { color: '#205539', fontSize: 16, fontWeight: '600' },
   error: { color: '#a12626', fontSize: 16, lineHeight: 24 },
   note: { color: '#58655d', fontSize: 13, lineHeight: 20 },
+  attribution: { color: '#58655d', fontSize: 12, textDecorationLine: 'underline' },
 });

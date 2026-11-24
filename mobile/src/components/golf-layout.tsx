@@ -33,13 +33,14 @@ export function GolfIcon({ name, color = palette.forest, size = 22 }: {
   return <SymbolView name={symbols[name]} tintColor={color} size={size} />;
 }
 
-export function GolfPage({ title, brand, children }: {
+export function GolfPage({ title, brand, belowHeader, children }: {
   title: string;
   brand?: boolean;
+  belowHeader?: boolean;
   children: ReactNode;
 }) {
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.screen} edges={belowHeader ? ['left', 'right', 'bottom'] : ['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heading}>
           {brand && <GolfIcon name="rounds" size={27} />}
@@ -57,7 +58,7 @@ export function RoundCard({ home = false }: { home?: boolean }) {
       <View style={styles.heroIcon}><GolfIcon name="rounds" color={palette.lime} size={24} /></View>
       <Text style={styles.heroTitle}>On the course</Text>
       <Text style={styles.heroBody}>Measure to your ball or pick a target on the map.</Text>
-      <Link href={home ? '/rounds' : '/track-round'} asChild>
+      <Link href={home ? '/rounds' : '/select-course'} asChild>
         <Pressable style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
           <Text style={styles.actionLabel}>{home ? 'Go to rounds' : 'Start round'}</Text>
           <GolfIcon name="arrow" size={18} />
