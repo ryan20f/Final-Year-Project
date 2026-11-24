@@ -1,5 +1,5 @@
 import { GolfPage, SectionLink } from '@/components/golf-layout';
-import { carrickHoleOne } from '@/constants/courses';
+import { carrickCourse } from '@/constants/courses';
 
 export default function SelectCourseScreen() {
   return (
@@ -7,8 +7,8 @@ export default function SelectCourseScreen() {
       <SectionLink
         href="/track-round"
         icon="rounds"
-        label={carrickHoleOne.course}
-        detail={`Hole ${carrickHoleOne.number} · ${carrickHoleOne.tees}`}
+        label={carrickCourse.name}
+        detail={`${carrickCourse.holes.length} holes · ${carrickCourse.tees}`}
       />
     </GolfPage>
   );

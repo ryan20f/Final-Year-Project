@@ -2,7 +2,6 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { palette } from '@/components/golf-layout';
-import { carrickHoleOne } from '@/constants/courses';
 
 export const unstable_settings = { initialRouteName: '(tabs)' };
 
@@ -16,7 +15,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="track-round"
           options={{
-            title: `Hole ${carrickHoleOne.number} · ${carrickHoleOne.tees}`,
+            title: 'Shot tracker',
             headerTintColor: palette.forest,
             headerStyle: { backgroundColor: palette.paper },
             headerShadowVisible: false,
