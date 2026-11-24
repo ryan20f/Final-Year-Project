@@ -1,32 +1,30 @@
-import { NativeTabs } from 'expo-router/native-tabs';
-import { useColorScheme } from 'react-native';
+import { Tabs } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
+import { GolfIcon, palette } from '@/components/golf-layout';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: palette.paper },
+        tabBarActiveTintColor: palette.forest,
+        tabBarInactiveTintColor: palette.muted,
+        tabBarActiveBackgroundColor: palette.sage,
+        tabBarItemStyle: { borderRadius: 12, marginHorizontal: 5 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarStyle: {
+          backgroundColor: palette.white,
+          borderTopColor: palette.line,
+          paddingTop: 5,
+          paddingHorizontal: 10,
+        },
+      }}
+    >
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ focused }) => <GolfIcon name="home" color={focused ? palette.forest : palette.muted} /> }} />
+      <Tabs.Screen name="rounds" options={{ title: 'Rounds', tabBarIcon: ({ focused }) => <GolfIcon name="rounds" color={focused ? palette.forest : palette.muted} /> }} />
+      <Tabs.Screen name="progress" options={{ title: 'Progress', tabBarIcon: ({ focused }) => <GolfIcon name="progress" color={focused ? palette.forest : palette.muted} /> }} />
+      <Tabs.Screen name="stats" options={{ title: 'Stats', tabBarIcon: ({ focused }) => <GolfIcon name="stats" color={focused ? palette.forest : palette.muted} /> }} />
+    </Tabs>
   );
 }

@@ -11,7 +11,7 @@ type Endpoint =
   | { source: 'gps'; point: Location.LocationObject }
   | { source: 'map'; point: Point };
 
-export default function HomeScreen() {
+export default function TrackRoundScreen() {
   const [start, setStart] = useState<Location.LocationObject | null>(null);
   const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,7 +67,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>GOLF PERFORMANCE</Text>
         <Text style={styles.title}>Measure your shot</Text>
@@ -111,7 +111,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#f3f6f1' },
-  content: { padding: 24, paddingBottom: 110, gap: 18, width: '100%', maxWidth: 620, alignSelf: 'center' },
+  content: { padding: 24, paddingBottom: 32, gap: 18, width: '100%', maxWidth: 620, alignSelf: 'center' },
   eyebrow: { color: '#42634d', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   title: { color: '#173e2a', fontSize: 34, fontWeight: '700' },
   body: { color: '#46564b', fontSize: 16, lineHeight: 24 },
