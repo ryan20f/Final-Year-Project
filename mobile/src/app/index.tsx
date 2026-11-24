@@ -1,22 +1,28 @@
 import * as Location from 'expo-location';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ShotMap from '@/components/shot-map';
+import type { Point } from '@/components/shot-map.types';
 import { distanceInMetres } from '@/utils/distance';
 
+type Endpoint =
+  | { source: 'gps'; point: Location.LocationObject }
+  | { source: 'map'; point: Point };
+
 export default function HomeScreen() {
-  const [positions, setPositions] = useState<Location.LocationObject[]>([]);
+  const [start, setStart] = useState<Location.LocationObject | null>(null);
+  const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const recording = useRef(false);
-  const distance = positions.length === 2
-    ? distanceInMetres(positions[0].coords, positions[1].coords)
-    : null;
+  const target = endpoint?.source === 'gps' ? endpoint.point.coords : endpoint?.point;
+  const distance = start && target ? distanceInMetres(start.coords, target) : null;
 
   async function recordPosition() {
-    if (recording.current || positions.length >= 2) return;
+    if (recording.current) return;
     recording.current = true;
     setBusy(true);
     setError(null);
@@ -33,7 +39,11 @@ export default function HomeScreen() {
         return;
       }
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
-      setPositions((previous) => [...previous, position]);
+      if (start) {
+        setEndpoint({ source: 'gps', point: position });
+      } else {
+        setStart(position);
+      }
     } catch {
       setError('Could not get your position. Try again outdoors with a clear view of the sky.');
     } finally {
@@ -43,7 +53,15 @@ export default function HomeScreen() {
   }
 
   function reset() {
-    setPositions([]);
+    setStart(null);
+    setEndpoint(null);
+    setError(null);
+    setShowSettings(false);
+  }
+
+  function selectTarget(point: Point) {
+    if (recording.current) return;
+    setEndpoint({ source: 'map', point });
     setError(null);
     setShowSettings(false);
   }
@@ -53,34 +71,38 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>GOLF PERFORMANCE</Text>
         <Text style={styles.title}>Measure your shot</Text>
-        <Text style={styles.body}>Record your starting position, walk to where the ball finished, then record the endpoint. Keep the app open while recording.</Text>
+        <Text style={styles.body}>Set a fixed start, then walk to the ball or choose a target on the map.</Text>
         <View style={styles.result}>
           <Text style={styles.eyebrow}>STRAIGHT-LINE DISTANCE</Text>
           <Text style={styles.distance}>{distance === null ? '—' : distance.toFixed(1)} m</Text>
-          <Text style={styles.body}>{positions.length === 0 ? 'Record your first position to begin.' : positions.length === 1 ? 'Walk to the endpoint and record again.' : 'Measurement complete.'}</Text>
+          <Text style={styles.body}>{endpoint?.source === 'gps' ? 'GPS endpoint' : endpoint ? 'Map target' : start ? 'Choose an endpoint.' : 'Set your start to begin.'}</Text>
         </View>
-        {positions.map((position, index) => (
-          <View key={index} style={styles.card}>
-            <Text style={styles.cardTitle}>{index === 0 ? 'Start position' : 'End position'}</Text>
-            <Text style={styles.body}>Latitude: {position.coords.latitude.toFixed(6)}</Text>
-            <Text style={styles.body}>Longitude: {position.coords.longitude.toFixed(6)}</Text>
-            <Text style={styles.body}>Reported accuracy: {position.coords.accuracy === null ? 'Unavailable' : `±${Math.round(position.coords.accuracy)} m`}</Text>
-            <Text style={styles.body}>Recorded: {new Date(position.timestamp).toLocaleTimeString()}</Text>
-          </View>
-        ))}
+        {start && <ShotMap start={start.coords} endpoint={target ?? null} onSelect={selectTarget} />}
+        {start && Platform.OS !== 'web' && (
+          <Text style={styles.body}>Tap the map or drag the endpoint pin to adjust your target.</Text>
+        )}
         {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
         {showSettings && (
           <Pressable accessibilityRole="button" style={styles.secondary} onPress={() => { void Linking.openSettings().catch(() => setError('Open phone Settings manually to change location access.')); }}>
             <Text style={styles.secondaryText}>Open settings</Text>
           </Pressable>
         )}
-        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} style={[styles.button, busy && styles.disabled]} onPress={positions.length === 2 ? reset : recordPosition}>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} style={[styles.button, busy && styles.disabled]} onPress={recordPosition}>
           {busy && <ActivityIndicator color="#ffffff" />}
-          <Text style={styles.buttonText}>{busy ? 'Finding your position…' : positions.length === 2 ? 'Start again' : positions.length === 0 ? 'Record start position' : 'Record end position'}</Text>
+          <Text style={styles.buttonText}>{busy ? 'Finding your position…' : start ? 'Use my location' : 'Set start'}</Text>
         </Pressable>
-        {positions.length === 1 && !busy && (
-          <Pressable accessibilityRole="button" style={styles.secondary} onPress={reset}><Text style={styles.secondaryText}>Clear measurement</Text></Pressable>
+        {start && !busy && (
+          <Pressable accessibilityRole="button" style={styles.secondary} onPress={reset}><Text style={styles.secondaryText}>Reset start</Text></Pressable>
         )}
+        {[{ label: 'Fixed start', position: start }, { label: 'GPS endpoint', position: endpoint?.source === 'gps' ? endpoint.point : null }].map(({ label, position }) => position && (
+          <View key={label} style={styles.card}>
+            <Text style={styles.cardTitle}>{label}</Text>
+            <Text style={styles.body}>Latitude: {position.coords.latitude.toFixed(6)}</Text>
+            <Text style={styles.body}>Longitude: {position.coords.longitude.toFixed(6)}</Text>
+            <Text style={styles.body}>Reported accuracy: {position.coords.accuracy === null ? 'Unavailable' : `±${Math.round(position.coords.accuracy)} m`}</Text>
+            <Text style={styles.body}>Recorded: {new Date(position.timestamp).toLocaleTimeString()}</Text>
+          </View>
+        ))}
         <Text style={styles.note}>Test outdoors. GPS has uncertainty and is unsuitable for precise putting distances. Positions are held in memory only and clear when the app restarts.</Text>
       </ScrollView>
     </SafeAreaView>
